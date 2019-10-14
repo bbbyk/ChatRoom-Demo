@@ -2,9 +2,9 @@
 
 template< typename T>
 threadpool<T>::threadpool(int thread_number, int max_request) :
-                m_thread_number(thread_number), m_max_request(max_request)
+                m_thread_number(thread_number), m_max_requests(max_request)
 {
-    if (m_thread_number <=0 || m_max_requests <=0)) {
+    if (m_thread_number <=0 || m_max_requests <=0) {
         throw std::exception();
     }
     m_threads = new pthread_t[m_thread_number];
@@ -61,9 +61,23 @@ void* threadpool<T>::worker(void *arg)
 template< typename T>
 void threadpool< T >::run()
 {
+    // 
     while ( ! m_stop)
     {
-
+        // 从任务队列中获取request
+        m_queuestat.wait();
+        m_queuelocker.lock();
+        if (m_workqueue.empty()) {
+            m_queuelocker.unlock();
+            continue;
+        }
+        auto request = m_workqueue.front();
+        m_workqueue.pop_front();
+        m_queuelocker.unlock();
+        // request中的processor是我们实际上要去完成的
+        if (!request)
+            continue;
+        request->processer();
     }
 }
 
